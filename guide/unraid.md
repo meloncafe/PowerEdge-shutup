@@ -1,27 +1,55 @@
+# PowerEdge-shutup on Unraid
+
+How to get it up and running easily on Unraid.
+
+## Requirements
+- iDrac Entreprise (afaik it won't work with express)
+- [IPMItool](https://github.com/ipmitool/ipmitool)
+- G11*, G12 or G13** Dell Poweredge server
+- Unraid duh
+
+*See also [me/PowerEdge-IPMItools](https://github.com/White-Raven/PowerEdge-IPMItools) for more applications and resources.*
+
+## Cron Jobs and Unraid
+
+Let's start with that. Cron jobs are just a linux way to tell your computer "Run this at this interval". 
+"This" being any kind of simple single command to a slew of cascading scripts spanning thousands of lines of code.
+
+Unraid makes it easy to create and manage cron jobs. No need to fiddle with the CLI, making it very userfriendly for beginners.
+
+This script basically is a basic "enter credential, ip and ready to run" with cron jobs already, so if we even have a GUI for it it's perfect.
+
+You can install the User Scripts plugin by Andrew Zawadzki in the Community Applications.
+
+If you are on an Unraid version older than 6.10, and you don't have the Community App 'store' installed, head to your plugins, "Install Plugin" tab, and paste in:
+```
+https://raw.githubusercontent.com/Squidly271/community.applications/master/plugins/community.applications.plg
+```
+
+If you are on Unraid 6.10 or newer, the Community App section should still appear whether or not you have it installed. Head up to there and click on the install button.
+
+## Add new Cron Jobs in Unraid
+
+Once User Scripts in installed, head to your "Setting" section in Unraid's webui. You should find User Scripts under the USER UTILITIES sub section.
+
+Adding in a new script then is as simple as clicking the "Add New Script" button, name it (keep it clean with A-Z 0-9, don't splurge in symbols).
+
+You should see your new script in the list. Click on the inline Cog left to its name, and in the pop-up, "Edit Script".
+
+You're now presented to a text area in which you can paste in and edit your script, which for this guide would be the [fancontrol.sh](https://github.com/White-Raven/PowerEdge-shutup/blob/main/fancontrol.sh) script I provide.
+
+Remmember, you need to punch in your own informations, from the IP of your dedicated iDrac nic, to the login and password, eventually the IPMI ids corresponding to your hardware.
+
+You can also obviously adjust the fan curves, for both CPU driven control or Ambient driven control. Note the Ambient/Inlet temp is also used in CPU temp driven mode, as a modifier.
+
+<details>
+<summary>
+<b>Also available here. Check link before for commented version with detailed info!</b>
+</summary>
+<p>
+
+```bash
 #!/bin/bash
-
-#WIP - sum
-#>Present data sources:
-#-IPMI CPU
-#-IPMI Ambient/INLET
-#-IPMI EXHAUST
-#-lm-sensors CPU (doable through SSH with a passwordless secure auth)
-#Todo
-#-Add select drive temps (using smartctl or other)
-
-#>Present modes:
-#-'default' - CPU temps (average/highest governor) + AE modifier + CPU temp delta safeguard for average temp governor
-#-'ambient-default' - DELTA AE, drives fan speed from calculation using the delta of temperature between inlet and exhaust and uses it instead of CPU temps, 
-#  then + AE modifiers as in default mode. Is the default fall back method for missing CPU temp data.
-#-'ambient-legacy' - ignores CPU temps and curves, drives fan speed from AE temps only following ambient specific curve, crude fall back method.
-#Todo
-#- create additional parameters for drive temps, seperated in two famillies (either for front and back, or for HDD and SSD... or maybe 3 famillies/groups), 
-#  with each a 3 step curve of modifiers.
-#- turn the bottom mess into a single dynamic function that each mode can call to do the job to facilitate adding new modes/profiles
-#- ?rewrite to use arrays instead of variables to store fan curves, and possibly from CPU temp data too?
-#- add alternative failsafe - 100% instead of auto
-
-
 #the IP address of iDrac
 IPMIHOST=192.168.0.42
 
@@ -31,8 +59,7 @@ IPMIUSER=root
 #iDrac password (calvin is the default password)
 IPMIPW=calvin
 
-#YOUR IPMI ENCRYPTION KEY - a big string of zeros is the default, and by default isn't mandatory to be specified.
-#You can modify it, for example in idrac7's webinterface under iDRAC Settings>Network , in the IPMI Settings section.
+#YOUR IPMI ENCRYPTION KEY 
 IPMIEK=0000000000000000000000000000000000000000
 
 #Side note: you shouldn't ever store credentials in a script. Period. Here it's an example. 
@@ -43,38 +70,21 @@ IPMIEK=0000000000000000000000000000000000000000
 E_value="auto"
 
 #IPMI IDs
-#/!\ IMPORTANT - the "0Eh"(CPU0),"0Fh"(CPU1), "04h"(inlet) and "01h"(exhaust) values are the proper ones for MY R720, maybe not for your server. 
-#To check your values, use the "temppull.sh" script.
 CPUID0=0Eh
 CPUID1=0Fh
 CPUID2="0#h"
 CPUID3="0#h"
-#Yes, there are 4 CPU servers in the poweredge line. I don't have one, so I left 0#h values for these. As said above, modify accordingly.
 AMBIENT_ID=04h
 EXHAUST_ID=01h
-#-------------------------------------------------
-#For G11 servers and some other unlucky ones:
-#I was made aware that people on iDrac6, notably the R610, reported only having access to ambient temperature, and not CPU temps neither exhaust temps.
-#Keep in mind though that this method is way less indicative of CPU temps. 
-#If your load isn't consistent enough to properly profile your server, it might lead to overheating.
-#In that case, you will have to do with only Ambient temp to define your fan speed, or rely on other sources for CPU temps.
-#-------------------------------------------------
 
 #Non-IPMI data source for CPU:
 NICPU_toggle=false
-#Command, or you way to pull data per device (here, using coretemp driver's coretemp-isa-#### )
 NICPUdatadump_command=(sensors -A)
-#Top level Device scan
 NICPUdatadump_device="coretemp-isa-"
-#Top level device count of numbers. For example coretemp-isa-0000 and coretemp-isa-0001 on a R720, coretemp-isa-#### would be 4.
 NICPUdatadump_device_num=4
-#"Core #" label for grep
 NICPUdatadump_core=Core
-#Where to cut in the line
 NICPUdatadump_cut="-c16-18"
-#Temperature offset : Some drivers report higher or lower temps than real world. Your offset must be an integer (ex: 0, -5, 12)
 NICPUdatadump_offset=0
-#IPMI data can be still used for Ambient and Exhaust data, but if you want to ignore pulling IPMI data all together, you can toggle it to false.
 IPMIDATA_toggle=true
 
 #Logtype:
@@ -84,9 +94,7 @@ IPMIDATA_toggle=true
 #3 = Table + fanspeed output + alerts
 Logtype=2
 
-#There you basically define your fan curve. For each fan step temperature (in °C) you define which fan speed it uses when it's equal or under this temp.
-#For example: until it reaches step0 at 30°C, it runs at 2% fan speed, if it's above 30°C and under 35°C, it will run at 6% fan speed, ect
-#Fan speed values are to be set as for each step in the FST# value, in % between 0 and 100.
+#There you basically define your fan curve.
 TEMP_STEP0=30
 FST0=2
 TEMP_STEP1=35
@@ -99,18 +107,11 @@ TEMP_STEP4=60
 FST4=12
 TEMP_STEP5=75
 FST5=20
-#CPU fan governor type - keep in mind, with IPMI it's CPUs, not cores.
-#0 = uses average CPU temperature accross CPUs
-#1 = uses highest CPU temperature
+#CPU fan governor type
 TEMPgov=0
-#Maximum allowed delta in TEMPgov0. If exceeded, switches profile to highest value.
 CPUdelta=15
 
 #These values are used as steps for the intake temps.
-#If Ambient temp is within range of $AMBTEMP_STEP#, it inflates the CPUs' temp average by AMBTEMP_STEP#_MOD when checked against TEMP_STEP#s.
-#If Ambient temp is above $AMBTEMP_MAX, which is step 4, a temp modifier of 69 should be well enough to make the script select auto-fan mode.
-#AMBTEMP_STEPX_noCPU_Fanspeed : Some servers don't report their CPU temps. In that case Fan speed can only be adjusted using Ambient temperature.
-#In case of lack of CPU temps in IPMI, Fan speed values are to be defined here as for each step in the AMBTEMP_noCPU_FS_STEP# value, in % between 0 and 100.
 
 AMBTEMP_STEP0=20
 AMBTEMP_MOD_STEP0=0
@@ -130,36 +131,17 @@ AMBTEMP_noCPU_FS_STEP3=30
 
 MAX_MOD=69
 
-#If your exhaust temp is reaching 65°C, you've been cooking your server. It needs the woosh.
 EXHTEMP_MAX=65
 
 #Ambient fan mode - Delta mode
-# => Fall back method when no CPU readings are available.
-#Delta mode uses the temperature difference (delta) between intake (ambient) and exhaust to control fan-speed.
-#To set the Deltatemp and fan speeds for each, use the parameters for the CPU fan mode profile.
-#By default, for safety, the temperature is divided by 3, so for the default first step, 30°C of CPU temp, the delta value is 10°C.
-#To modify the ratio, modify the value DeltaR. Default is 3, no ratio is 1.
 AMBDeltaMode=true
 DeltaR=3
-#If in delta mode, ambient temp would warrant an higher fan speed according to the ambient profile, it will use ambient profile's
-#recommendation as to protect your hardware from running with a low delta but with an overall too high temperature.
-#If you lack Exhaust temps, there is a fallback method to solely ambient.
-#If you lack Intake temps, the fall back method swaps Exhaust to intake temps, you need to modify Ambient temp stepping,
-#because the values are too low, even if they are safe, since fans would run higher than you might want in that case.
-#If you lack both readings, it falls back to auto-fan mode.
 
 #Log loop debug - true or false, logging of loops for debugging script
 Logloop=false
 
 #Looplog prefix
 l="Loop -"
-
-#IPMI Commands to set fan speeds.
-# "ipmitool -I lanplus -H $IPMIHOST -U $IPMIUSER -P $IPMIPW -y $IPMIEK raw 0x30 0x30 0x01 0x01" gives back to the server the right to automate fan speed
-# "ipmitool -I lanplus -H $IPMIHOST -U $IPMIUSER -P $IPMIPW -y $IPMIEK raw 0x30 0x30 0x01 0x00" stops the server from adjusting fanspeed by itself, no matter the temp
-# "ipmitool -I lanplus -H $IPMIHOST -U $IPMIUSER -P $IPMIPW -y $IPMIEK raw 0x30 0x30 0x02 0xff 0x"hex value 00-64" lets you define fan speed
-
-#Extra Curves and data sources
 
 #Hexadecimal conversion and IPMI command into a function 
 ipmifanctl=(ipmitool -I lanplus -H "$IPMIHOST" -U "$IPMIUSER" -P "$IPMIPW" -y "$IPMIEK" raw 0x30 0x30)
@@ -827,3 +809,108 @@ else
                 done
         fi
 fi
+```
+
+</p>
+</details>
+
+## Cron job yet?
+
+Good, you added your script. Still, at this moment, it doesn't run by itself.
+
+It's normal, for now it's just a script on a file, with no wit to it, it's not YET a cron job. You now have to give it a schedule (if you so desire).
+
+Unraid makes it easy again.
+Click on the droplist that should be showing "Schedule Disabled" as its selected option.
+You should find a pre-made array of ready to go schedules as follow:
+
+Schedule Disabled|
+------------ |
+Scheduled Hourly |
+Scheduled Weekly |
+Scheduled Monthly |
+At Startup of Array | 
+At Stopping of Array |
+At First Array Start Only |
+**Custom** |
+
+The ones linked to array events execute on the array's "active time", aka after the array started, and before it shuts down, keep that in mind.
+
+**But** that's not what we want for a script managing cooling. Polling data and adjusting fan speed must be on a schedule way tighter than hourly, so we will use the **Custom** option.
+
+Selection the "Custom" option will pop a little text box to the right of the droplist, of which the formatting is important and follow standard cron job format.
+
+Cron expressions speak in minutes, hours, day of the month, month, day of the week and year.
+
+Before going more in depth, let's cut to the chase, if you want your script to run every minute, punch in: ```* * * * *```
+
+**Keep in mind** that as stated before user scripts only run on Array uptime, meaning that setting up a script that puts back fan control on auto when you shut down the array is more than advised.
+
+To do so, create a separate script, scheduled on "At stopping of Array", punching in your own infos and credentials, that goes as follow:
+```bash
+#!/bin/bash
+IPMIHOST=192.168.0.42
+#iDrac user
+IPMIUSER=root
+#iDrac password (calvin is the default password)
+IPMIPW=calvin
+#YOUR IPMI ENCRYPTION KEY - a big string of zeros is the default, and by default isn't mandatory to be specified.
+#You can modify it, for example in idrac7's webinterface under iDRAC Settings>Network , in the IPMI Settings section.
+IPMIEK=0000000000000000000000000000000000000000
+
+#The command will just put fans back to auto.
+ipmitool -I lanplus -H $IPMIHOST -U $IPMIUSER -P $IPMIPW -y $IPMIEK raw 0x30 0x30 0x01 0x01
+```
+With that, you're more or less set for the fan control.
+
+
+## More cron
+Well, you can do a lot with cron expressions, that's the gist of it.
+
+<details>
+<summary>
+<b>Everything you need should be here</b>
+</summary>
+<p>
+
+Instead of boring you with text, here's the alphabet of them:
+
+Field Name |	Mandatory |	Allowed Values |	Allowed Special Characters |
+------ | ------- | ------- | ------- |
+Minutes |	YES |	0 - 59 |	, - \* / |
+Hours |	YES |	0 - 23 |	, - \* / |
+Day of month |	YES |	1 - 31 |	, - \* ? / L W |
+Month |	YES |	1 - 12 (representing Jan - Dec), JAN - DEC (case-insensitive), JANUARY - DECEMBER (case-insensitive) |	, - \* / |
+Day of week |	YES |	0 - 6, 7 (representing Sun - Sat and Sun again), SUN - SAT (case-insensitive), SUNDAY - SATURDAY (case-insensitive) |	, - \* ? / L # |
+Year |	NO |	empty or 1970-2099 |	, - \* / |
+
+And here a cheatsheet, you'll probably find what you're looking for in it, or be able to make it from it.
+ 
+Cron Expression	examples | Meaning |
+--------- | --------- |
+\* \* \* \* \* 2022 |	Execute a cron job every minute during the year 2022 |
+\* \* \* \* \* |	Execute a cron job every minute |
+\*/5 \* \* \* \* |	Execute a cron job every 5 minutes |
+0 \* \* \* \* |	Execute a cron job every hour |
+0 12 \* \* \* |	Fire at 12:00 PM (noon) every day |
+15 10 \* \* \* |	Fire at 10:15 AM every day |
+15 10 \* \* ? |	Fire at 10:15 AM every day |
+15 10 \* \* \* 2022-2024 |	Fire at 10:15 AM every day during the years 2022, 2023 and 2024 |
+\* 14 \* \* \* |	Fire every minute starting at 2:00 PM and ending at 2:59 PM, every day |
+0/5 14,18 \* \* \* |	Fire every 5 minutes starting at 2:00 PM and ending at 2:55 PM, AND fire every 5 minutes starting at 6:00 PM and ending at 6:55 PM, every day |
+0-5 14 \* \* \* |	Fire every minute starting at 2:00 PM and ending at 2:05 PM, every day |
+10,44 14 \* 3 3 |	Fire at 2:10 PM and at 2:44 PM every Wednesday in the month of March. |
+15 10 \* \* 1-5 |	Fire at 10:15 AM every Monday, Tuesday, Wednesday, Thursday and Friday |
+15 10 15 \* \* |	Fire at 10:15 AM on the 15th day of every month |
+15 10 L \* \* |	Fire at 10:15 AM on the last day of every month |
+15 10 \* \* 5L |	Fire at 10:15 AM on the last Friday of every month |
+15 10 \* \* 5#3 |	Fire at 10:15 AM on the third Friday of every month |
+0 12 1/5 \* \* |	Fire at 12:00 PM (noon) every 5 days every month, starting on the first day of the month. |
+11 11 11 11 \* |	Fire every November 11th at 11:11 AM. |
+11 11 11 11 \* 2022	| Fire at 11:11 AM on November 11th in the year 2022. |
+0 0 \* \* 3 |	Fire at midnight of each Wednesday. |
+0 0 1,2 \* \* |	Fire at midnight of 1st, 2nd day of each month |
+0 0 1,2 \* 3 |	Fire at midnight of 1st, 2nd day of each month, and each Wednesday. |
+
+</p>
+</details>

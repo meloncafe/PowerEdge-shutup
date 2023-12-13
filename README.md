@@ -1,13 +1,31 @@
 # PowerEdge-shutup
+<details>
+<summary>
+<b>[ Changelog ] </b>
+</summary>
+<p>
 
-R2 update: now takes in account intake and exhaust temperatures!
+- 2023 XX XX | >Since last year my R720's motherboard has been dying. Not sure if I'll get around to do finish the full 2.0 rework of this script since I won't really use it, but who knows, could gamble of me getting incredibly bored at some point.
+- 2022 07 11 | >minor update: Swapping CPU IDs fixing single CPU detection failure.
+- 2022 05 13 | >minor update: Adding custom failsafe value. Work In Progress branch for upcoming R5. 
+- 2022 03 04 | >R4 patch1 : Adding new CPU Data source option, minor log corrections.
+- 2022 03 03 | >R4 Deltacheck CPU mode, DeltaA/E with Ambient check, failsafes, infinite CPU count.
+- 2022 02 27 | >minor update: adding IPMI-fail fail-safe.
+- 2022 02 27 | >R3 Auto CPUn/Ambient mode switching, logging, auto hexadecimal conversion, and more.
+- 2022 02 01 | >minor update: beginner friendly guide for beginner friendly Unraid and minor edits.
+- 2021 11 10 | >/!\ r2f : fixing a small, but quite critical fluke.
+- 2021 08 19 | >R2 update: now takes in account intake and exhaust temperatures!
+- 2021 04-08 | > various shit edits
+- 2021 04 14 | >R1 initial dump from my running environment & comments
+</p>
+</details>
 
 ## Requirements
 - iDrac Entreprise (afaik it won't work with express)
 - [IPMItool](https://github.com/ipmitool/ipmitool)
-- G11*, G12 or G13** Dell Poweredge server
+- G11*, G12, G13/G14** Dell Poweredge server
 
-*See also [me/PowerEdge-IPMItools](https://github.com/White-Raven/PowerEdge-IPMItools) for other applications and resources.*
+*See also [me/PowerEdge-IPMItools](https://github.com/White-Raven/PowerEdge-IPMItools) for more applications and resources.*
 
 ## What about it
 Does what it says, depending on your environmental constraints, it might let you make your servers whisper-quiet, which 
@@ -22,7 +40,7 @@ I'ld just appreciate that if you itterate on it or send it somewhere, you could 
 
 As of what you can do with these great little commands... well..
 
-You can run them as a cron job, or create a loop, or add some calculations pulling data for the inlet/outlet to fine tune even more, but point is, lets you set your fan speed to bare minimum RPM depending of how warm or cool is your room and how hard you hit your servers.
+You can run them as a cron job, or create a loop, but point is, lets you set your fan speed to bare minimum RPM depending of how warm or cool is your room and how hard you hit your servers.
 
 
 
@@ -41,6 +59,6 @@ I simply haven't included all that because it's a lot more cumbersome and needs 
 
 
 ----------------
-*_G11 seem to lack CPU temps in the data you can pull and rely on. Beware of the comments about it in the script and use the appropriate bits of code._
+*_G11 seem to lack CPU temps in the data you can pull and rely on. Beware of the comments about it in the script, look for Delta A/E mode and Ambient mode._
 
-**_I was told it is also working on iDrac8 (G13), but that beyond iDrac update 3.30.30.30, Dell has modified/removed the ability to control the fans via IMPI._
+**_I was told it is also working on iDrac8 (G13) and iDrac9 (G14), but that beyond iDrac update 3.30.30.30 for G13 and 3.34.34.34 for G14, Dell has modified/removed the ability to control the fans via IMPI._
